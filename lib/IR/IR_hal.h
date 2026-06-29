@@ -5,7 +5,7 @@
 #define IR_N2_PIN 23
 
 #define IR_S1_PIN 27
-#define IR_S2_PIN 14
+#define IR_S2_PIN 21
 
 #define IR_W1_PIN 34
 #define IR_W2_PIN 35

@@ -1,5 +1,4 @@
 #include "traffic_manager_app.h"
-#include "LED_HAL.h"
 
 TaskHandle_t traffic_manager_app_handler;
 
@@ -12,6 +11,7 @@ int total_count_E = 0;
 #define MAX_GREEN_TIME 60
 #define TIME_PER_VEHICLE 2
 #define ORANGE_TIME 3
+#define ALL_RED_TIME 10
 
 int calculateGreenTime(int vehicles)
 {
@@ -82,6 +82,7 @@ void traffic_manager_app(void *pvParameters)
         }
 
         all_red(); // safety buffer between cycles
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(ALL_RED_TIME * 1000));
+        //vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
