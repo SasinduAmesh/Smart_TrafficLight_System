@@ -75,7 +75,7 @@ void traffic_manager_app(void *pvParameters)
     while (1)
     {
         //------------------------------------------------
-        // STEP 1: SENSOR READ FIRST (important fix)
+        // STEP 1: SENSOR READ FIRST
         //------------------------------------------------
         total_count_N = max(0, count_N2 - count_N1);
         total_count_S = max(0, count_S2 - count_S1);
@@ -85,29 +85,52 @@ void traffic_manager_app(void *pvParameters)
         total_count_NS = total_count_N + total_count_S;
         total_count_EW = total_count_E + total_count_W;
 
+        Serial.println("\n==============================");
+        Serial.println("Sensor Update");
+        Serial.print("N: "); Serial.print(total_count_N);
+        Serial.print(" | S: "); Serial.print(total_count_S);
+        Serial.print(" | NS Total: "); Serial.println(total_count_NS);
+
+        Serial.print("E: "); Serial.print(total_count_E);
+        Serial.print(" | W: "); Serial.print(total_count_W);
+        Serial.print(" | EW Total: "); Serial.println(total_count_EW);
+
         //------------------------------------------------
-        // STEP 2: DECISION FIRST
+        // STEP 2: DECISION
         //------------------------------------------------
         bool ewPriority = (total_count_EW >= total_count_NS);
 
         int ewGreen = calculateGreenTime(total_count_EW);
         int nsGreen = calculateGreenTime(total_count_NS);
 
+        Serial.println("Decision Phase");
+        Serial.print("EW Priority: ");
+        Serial.println(ewPriority ? "YES" : "NO");
+
+        Serial.print("EW Green Time: ");
+        Serial.print(ewGreen);
+        Serial.println(" sec");
+
+        Serial.print("NS Green Time: ");
+        Serial.print(nsGreen);
+        Serial.println(" sec");
+
         //------------------------------------------------
-        // STEP 3: ALL RED (ONLY ONCE PER CYCLE)
+        // STEP 3: ALL RED
         //------------------------------------------------
+        Serial.println("Phase: ALL RED");
         all_red();
         runCountdown_AllRed();
 
         //------------------------------------------------
-        // STEP 4: EXECUTE CYCLE
+        // STEP 4: EXECUTION
         //------------------------------------------------
 
         if (ewPriority)
         {
-            // -------------------------
-            // EW ORANGE (3s)
-            // -------------------------
+            Serial.println("Flow: EW PRIORITY ROUTE");
+
+            Serial.println("Phase: EW ORANGE");
             ew_orange();
             ns_red();
 
@@ -115,41 +138,45 @@ void traffic_manager_app(void *pvParameters)
             {
                 showNumberDisplay_EW(i);
                 showNumberDisplay_NS(i);
+                Serial.print("EW Orange Countdown: ");
+                Serial.println(i);
                 vTaskDelay(pdMS_TO_TICKS(1000));
             }
 
-            // -------------------------
-            // EW GREEN
-            // -------------------------
+            Serial.println("Phase: EW GREEN START");
             ew_green();
             ns_red();
+
+            Serial.print("EW Green Duration: ");
+            Serial.println(ewGreen);
+
             runDualCountdown(ewGreen, false);
 
-            // -------------------------
-            // END WARNING (3s)
-            // -------------------------
+            Serial.println("Phase: END WARNING (EW->NS)");
             ew_green();
             ns_orange();
 
             for (int i = 3; i > 0; i--)
             {
-                showNumberDisplay_EW(i);
-                showNumberDisplay_NS(i);
+                Serial.print("End Warning EW: ");
+                Serial.println(i);
                 vTaskDelay(pdMS_TO_TICKS(1000));
             }
 
-            // -------------------------
-            // NS GREEN
-            // -------------------------
+            Serial.println("Phase: NS GREEN START");
             ew_red();
             ns_green();
+
+            Serial.print("NS Green Duration: ");
+            Serial.println(nsGreen);
+
             runDualCountdown(nsGreen, true);
         }
         else
         {
-            // -------------------------
-            // NS ORANGE (3s)
-            // -------------------------
+            Serial.println("Flow: NS PRIORITY ROUTE");
+
+            Serial.println("Phase: NS ORANGE");
             ns_orange();
             ew_red();
 
@@ -157,39 +184,41 @@ void traffic_manager_app(void *pvParameters)
             {
                 showNumberDisplay_NS(i);
                 showNumberDisplay_EW(i);
+                Serial.print("NS Orange Countdown: ");
+                Serial.println(i);
                 vTaskDelay(pdMS_TO_TICKS(1000));
             }
 
-            // -------------------------
-            // NS GREEN
-            // -------------------------
+            Serial.println("Phase: NS GREEN START");
             ns_green();
             ew_red();
+
+            Serial.print("NS Green Duration: ");
+            Serial.println(nsGreen);
+
             runDualCountdown(nsGreen, true);
 
-            // -------------------------
-            // END WARNING (3s)
-            // -------------------------
+            Serial.println("Phase: END WARNING (NS->EW)");
             ns_green();
             ew_orange();
 
             for (int i = 3; i > 0; i--)
             {
-                showNumberDisplay_NS(i);
-                showNumberDisplay_EW(i);
+                Serial.print("End Warning NS: ");
+                Serial.println(i);
                 vTaskDelay(pdMS_TO_TICKS(1000));
             }
 
-            // -------------------------
-            // EW GREEN
-            // -------------------------
+            Serial.println("Phase: EW GREEN START");
             ns_red();
             ew_green();
+
+            Serial.print("EW Green Duration: ");
+            Serial.println(ewGreen);
+
             runDualCountdown(ewGreen, false);
         }
 
-        //------------------------------------------------
-        // LOOP RESTART (ONLY ONE ALL RED NEXT CYCLE)
-        //------------------------------------------------
+        Serial.println("Cycle Complete → Restarting with ALL RED next loop");
     }
 }
