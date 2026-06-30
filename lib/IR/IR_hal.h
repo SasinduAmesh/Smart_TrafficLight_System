@@ -1,7 +1,7 @@
 #ifndef IR_HAL_H
 #define IR_HAL_H
 
-#define IR_N1_PIN 22  // change this for i2c
+#define IR_N1_PIN 22  
 #define IR_N2_PIN 23
 
 #define IR_S1_PIN 27

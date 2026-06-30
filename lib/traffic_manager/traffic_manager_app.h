@@ -5,6 +5,7 @@
 
 #include "IR_driver.h"
 #include "led_driver.h"
+#include "display_driver.h"
 
 extern TaskHandle_t traffic_manager_app_handler;
 

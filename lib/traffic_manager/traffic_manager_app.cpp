@@ -9,169 +9,187 @@ int total_count_S = 0;
 int total_count_E = 0;
 int total_count_W = 0;
 
-// Timing Parameters
-#define MIN_GREEN_TIME 10  // seconds
-#define MAX_GREEN_TIME 60  // seconds
-#define TIME_PER_VEHICLE 2 // seconds per vehicle
-#define ORANGE_TIME 3      // seconds
-#define ALL_RED_TIME 1     // seconds
+int total_count_NS = 0;
+int total_count_EW = 0;
 
-//----------------------------------------------------
-// Calculate Green Time
+// Timing
+#define MIN_GREEN_TIME 10
+#define MAX_GREEN_TIME 60
+#define TIME_PER_VEHICLE 2
+#define ALL_RED_TIME 5
+#define ORANGE_EW_TIME 3
+#define ORANGE_NS_TIME 3
+
+void showNumberDisplay_NS(int number);
+void showNumberDisplay_EW(int number);
+
 //----------------------------------------------------
 int calculateGreenTime(int vehicles)
 {
-    int greenTime = MIN_GREEN_TIME + (vehicles * TIME_PER_VEHICLE);
-
-    if (greenTime > MAX_GREEN_TIME)
-        greenTime = MAX_GREEN_TIME;
-
-    return greenTime;
+    int time = MIN_GREEN_TIME + (vehicles * TIME_PER_VEHICLE);
+    if (time > MAX_GREEN_TIME)
+        time = MAX_GREEN_TIME;
+    return time;
 }
 
 //----------------------------------------------------
-// Traffic Manager Task
+void runCountdown_AllRed()
+{
+    for (int i = ALL_RED_TIME; i > 0; i--)
+    {
+        showNumberDisplay_NS(i);
+        showNumberDisplay_EW(i);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
+//----------------------------------------------------
+void runDualCountdown(int greenTime, bool isNS)
+{
+    for (int i = greenTime; i > 0; i--)
+    {
+        if (isNS)
+        {
+            showNumberDisplay_NS(i);
+            showNumberDisplay_EW(i);
+        }
+        else
+        {
+            showNumberDisplay_EW(i);
+            showNumberDisplay_NS(i);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+
 //----------------------------------------------------
 void traffic_manager_app(void *pvParameters)
 {
-    Serial.println();
-    Serial.println("========================================");
-    Serial.println(" Demand Actuated Traffic Signal Started ");
-    Serial.println("========================================");
+    Serial.println("Traffic Signal Started");
 
     IR_Init();
     LED_init();
-
-    all_red();
+    initDisplays();
 
     while (1)
     {
-        //----------------------------------------------------
-        // Read Vehicle Counts
-        //----------------------------------------------------
+        //------------------------------------------------
+        // STEP 1: SENSOR READ FIRST (important fix)
+        //------------------------------------------------
         total_count_N = max(0, count_N2 - count_N1);
         total_count_S = max(0, count_S2 - count_S1);
         total_count_E = max(0, count_E2 - count_E1);
         total_count_W = max(0, count_W2 - count_W1);
 
-        int NS_Count = total_count_N + total_count_S;
-        int EW_Count = total_count_E + total_count_W;
+        total_count_NS = total_count_N + total_count_S;
+        total_count_EW = total_count_E + total_count_W;
 
-        //----------------------------------------------------
-        // Debug Information
-        //----------------------------------------------------
-        Serial.println();
-        Serial.println("========================================");
-        Serial.println("Current Vehicle Counts");
-        Serial.println("----------------------------------------");
+        //------------------------------------------------
+        // STEP 2: DECISION FIRST
+        //------------------------------------------------
+        bool ewPriority = (total_count_EW >= total_count_NS);
 
-        Serial.printf("North : %d\n", total_count_N);
-        Serial.printf("South : %d\n", total_count_S);
-        Serial.printf("East  : %d\n", total_count_E);
-        Serial.printf("West  : %d\n", total_count_W);
+        int ewGreen = calculateGreenTime(total_count_EW);
+        int nsGreen = calculateGreenTime(total_count_NS);
 
-        Serial.println("----------------------------------------");
-        Serial.printf("North-South Total : %d\n", NS_Count);
-        Serial.printf("East-West Total   : %d\n", EW_Count);
-        Serial.println("========================================");
+        //------------------------------------------------
+        // STEP 3: ALL RED (ONLY ONCE PER CYCLE)
+        //------------------------------------------------
+        all_red();
+        runCountdown_AllRed();
 
-        //----------------------------------------------------
-        // NORTH - SOUTH has Priority
-        //----------------------------------------------------
-        if (NS_Count >= EW_Count)
+        //------------------------------------------------
+        // STEP 4: EXECUTE CYCLE
+        //------------------------------------------------
+
+        if (ewPriority)
         {
-            int greenTime = calculateGreenTime(NS_Count);
+            // -------------------------
+            // EW ORANGE (3s)
+            // -------------------------
+            ew_orange();
+            ns_red();
 
-            Serial.println();
-            Serial.println(">>> SELECTED : NORTH - SOUTH");
-            Serial.printf("Green Time : %d seconds\n", greenTime);
-
-            ns_green();
-
-            Serial.println("Signal : GREEN");
-
-            for (int t = greenTime; t > 0; t--)
+            for (int i = ORANGE_EW_TIME; i > 0; i--)
             {
-                Serial.printf("NS GREEN  | Remaining : %2d s\r", t);
+                showNumberDisplay_EW(i);
+                showNumberDisplay_NS(i);
                 vTaskDelay(pdMS_TO_TICKS(1000));
             }
 
-            Serial.println();
+            // -------------------------
+            // EW GREEN
+            // -------------------------
+            ew_green();
+            ns_red();
+            runDualCountdown(ewGreen, false);
 
-            Serial.println("Signal : ORANGE");
-
+            // -------------------------
+            // END WARNING (3s)
+            // -------------------------
+            ew_green();
             ns_orange();
 
-            for (int t = ORANGE_TIME; t > 0; t--)
+            for (int i = 3; i > 0; i--)
             {
-                Serial.printf("NS ORANGE | Remaining : %d s\r", t);
+                showNumberDisplay_EW(i);
+                showNumberDisplay_NS(i);
                 vTaskDelay(pdMS_TO_TICKS(1000));
             }
 
-            Serial.println();
-
-            // Reset served lane counters
-            count_N1 = count_N2;
-            count_S1 = count_S2;
+            // -------------------------
+            // NS GREEN
+            // -------------------------
+            ew_red();
+            ns_green();
+            runDualCountdown(nsGreen, true);
         }
-
-        //----------------------------------------------------
-        // EAST - WEST has Priority
-        //----------------------------------------------------
         else
         {
-            int greenTime = calculateGreenTime(EW_Count);
+            // -------------------------
+            // NS ORANGE (3s)
+            // -------------------------
+            ns_orange();
+            ew_red();
 
-            Serial.println();
-            Serial.println(">>> SELECTED : EAST - WEST");
-            Serial.printf("Green Time : %d seconds\n", greenTime);
-
-            ew_green();
-
-            Serial.println("Signal : GREEN");
-
-            for (int t = greenTime; t > 0; t--)
+            for (int i = ORANGE_NS_TIME; i > 0; i--)
             {
-                Serial.printf("EW GREEN  | Remaining : %2d s\r", t);
+                showNumberDisplay_NS(i);
+                showNumberDisplay_EW(i);
                 vTaskDelay(pdMS_TO_TICKS(1000));
             }
 
-            Serial.println();
+            // -------------------------
+            // NS GREEN
+            // -------------------------
+            ns_green();
+            ew_red();
+            runDualCountdown(nsGreen, true);
 
-            Serial.println("Signal : ORANGE");
-
+            // -------------------------
+            // END WARNING (3s)
+            // -------------------------
+            ns_green();
             ew_orange();
 
-            for (int t = ORANGE_TIME; t > 0; t--)
+            for (int i = 3; i > 0; i--)
             {
-                Serial.printf("EW ORANGE | Remaining : %d s\r", t);
+                showNumberDisplay_NS(i);
+                showNumberDisplay_EW(i);
                 vTaskDelay(pdMS_TO_TICKS(1000));
             }
 
-            Serial.println();
-
-            // Reset served lane counters
-            count_E1 = count_E2;
-            count_W1 = count_W2;
+            // -------------------------
+            // EW GREEN
+            // -------------------------
+            ns_red();
+            ew_green();
+            runDualCountdown(ewGreen, false);
         }
 
-        //----------------------------------------------------
-        // ALL RED
-        //----------------------------------------------------
-        Serial.println();
-        Serial.println("Signal : ALL RED");
-
-        all_red();
-
-        for (int t = ALL_RED_TIME; t > 0; t--)
-        {
-            Serial.printf("ALL RED   | Remaining : %d s\r", t);
-            vTaskDelay(pdMS_TO_TICKS(1000));
-        }
-
-        Serial.println();
-        Serial.println("----------------------------------------");
-        Serial.println("Traffic Cycle Completed");
-        Serial.println("----------------------------------------");
+        //------------------------------------------------
+        // LOOP RESTART (ONLY ONE ALL RED NEXT CYCLE)
+        //------------------------------------------------
     }
 }

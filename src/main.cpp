@@ -6,7 +6,7 @@ void setup()
 {
     Serial.begin(115200);
 
-    xTaskCreatePinnedToCore(traffic_manager_app, "traffic_manager_app", 4096, NULL, 1, &traffic_manager_app_handler, 1);
+    xTaskCreatePinnedToCore(traffic_manager_app, "traffic_manager_app", 8192, NULL, 1, &traffic_manager_app_handler, 1);
 }
 
 void loop()

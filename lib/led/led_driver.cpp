@@ -76,3 +76,16 @@ void ew_orange()
     digitalWrite(LED_PIN_EW_G, LOW);
 }
 
+void ew_red()
+{
+    digitalWrite(LED_PIN_EW_R, HIGH);
+    digitalWrite(LED_PIN_EW_O, LOW);
+    digitalWrite(LED_PIN_EW_G, LOW);
+}
+
+void ns_red()
+{
+    digitalWrite(LED_PIN_NS_R, HIGH);
+    digitalWrite(LED_PIN_NS_O, LOW);
+    digitalWrite(LED_PIN_NS_G, LOW);
+}
